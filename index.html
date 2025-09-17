@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pelafalan Bahasa Inggris</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    padding: 15px;
+    background: #f9f9f9;
+    text-align: center;
+  }
+  h2 { color: #333; }
+  input, textarea, select {
+    padding: 10px;
+    font-size: 16px;
+    margin: 8px 0;
+    width: 90%;
+    max-width: 500px;
+  }
+  textarea {
+    height: 100px;
+    resize: vertical;
+  }
+  .btn-group {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 15px;
+  }
+  button {
+    flex: 1 1 40%;
+    min-width: 120px;
+    padding: 15px;
+    font-size: 16px;
+    border: none;
+    border-radius: 10px;
+    color: white;
+    background: #007BFF;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+  button:hover { background: #0056b3; }
+  button:active { transform: scale(0.96); }
+  .btn-stop { background: #dc3545; }
+  .btn-stop:hover { background: #a71d2a; }
+  .btn-pause { background: #ffc107; color: black; }
+  .btn-pause:hover { background: #d39e00; }
+  .btn-resume { background: #28a745; }
+  .btn-resume:hover { background: #1e7e34; }
+  .btn-auto { background: #17a2b8; }
+  .btn-auto:hover { background: #117a8b; }
+  .btn-download { background: #6f42c1; }
+  .btn-download:hover { background: #4e2880; }
+</style>
+</head>
+<body>
+  <h2>English Pronunciation App</h2>
+
+  <textarea id="textInput" placeholder="Masukkan teks bahasa Inggris (bisa panjang)"></textarea>
+  <br>
+
+  <select id="voiceSelect"></select>
+
+  <div class="btn-group">
+    <button onclick="speakNormal()">🔊 Normal</button>
+    <button onclick="speakSlow()">🐢 Slow</button>
+    <button onclick="speakExtraSlow()">🐌 Extra Slow</button>
+    <button class="btn-auto" onclick="speakAuto()">🤖 Auto Mode</button>
+    <button class="btn-pause" onclick="pauseSpeech()">⏸ Pause</button>
+    <button class="btn-resume" onclick="resumeSpeech()">▶️ Resume</button>
+    <button class="btn-stop" onclick="stopSpeech()">⏹ Stop</button>
+    <button class="btn-download" onclick="downloadAudio('mp3')">⬇️ Download MP3</button>
+    <button class="btn-download" onclick="downloadAudio('ogg')">⬇️ Download OGG</button>
+  </div>
+
+  <script>
+    let voices = [];
+    let autoSentences = [];
+    let autoIndex = 0;
+    let autoMode = false;
+
+    function loadVoices() {
+      voices = speechSynthesis.getVoices();
+      let voiceSelect = document.getElementById("voiceSelect");
+      voiceSelect.innerHTML = "";
+      
+      voices.forEach((voice, i) => {
+        if (voice.lang.startsWith("en")) { // hanya bahasa Inggris
+          let option = document.createElement("option");
+          option.value = i;
+          option.textContent = voice.name + " (" + voice.lang + ")";
+          voiceSelect.appendChild(option);
+        }
+      });
+    }
+    speechSynthesis.onvoiceschanged = loadVoices;
+
+    function getSelectedVoice() {
+      let selectedIndex = document.getElementById("voiceSelect").value;
+      return voices[selectedIndex] || null;
+    }
+
+    function speak(text, speed=1, callback=null) {
+      if (!text) return;
+      let utterance = new SpeechSynthesisUtterance(text.trim());
+      let voice = getSelectedVoice();
+      if (voice) utterance.voice = voice;
+      utterance.rate = speed;
+
+      utterance.onend = () => {
+        if (callback) callback();
+      };
+
+      speechSynthesis.speak(utterance);
+    }
+
+    function speakNormal() {
+      speechSynthesis.cancel();
+      let text = document.getElementById("textInput").value;
+      speak(text, 1);
+    }
+
+    function speakSlow() {
+      speechSynthesis.cancel();
+      let text = document.getElementById("textInput").value;
+      speak(text, 0.6);
+    }
+
+    function speakExtraSlow() {
+      speechSynthesis.cancel();
+      let text = document.getElementById("textInput").value;
+      speak(text, 0.4);
+    }
+
+    function speakAuto() {
+      speechSynthesis.cancel();
+      let text = document.getElementById("textInput").value;
+      autoSentences = text.split(/[\.?!,]/).map(s => s.trim()).filter(s => s.length > 0);
+      autoIndex = 0;
+      autoMode = true;
+      playNextSentence();
+    }
+
+    function playNextSentence() {
+      if (!autoMode || autoIndex >= autoSentences.length) {
+        autoMode = false;
+        return;
+      }
+      let sentence = autoSentences[autoIndex];
+      autoIndex++;
+      speak(sentence, 0.8, () => {
+        setTimeout(playNextSentence, 800); // jeda antar kalimat
+      });
+    }
+
+    function pauseSpeech() {
+      if (speechSynthesis.speaking && !speechSynthesis.paused) {
+        speechSynthesis.pause();
+      }
+    }
+
+    function resumeSpeech() {
+      if (speechSynthesis.paused) {
+        speechSynthesis.resume();
+      }
+    }
+
+    function stopSpeech() {
+      autoMode = false;
+      if (speechSynthesis.speaking) {
+        speechSynthesis.cancel();
+      }
+    }
+
+    // Fungsi download audio
+    async function downloadAudio(format) {
+      const text = document.getElementById("textInput").value.trim();
+      if (!text) return alert("Masukkan teks dulu");
+
+      // Gunakan API eksternal untuk TTS (karena Web Speech API tidak bisa simpan audio)
+      const apiUrl = `https://api.streamelements.com/kappa/v2/speech?voice=Brian&text=${encodeURIComponent(text)}`;
+      
+      try {
+        const response = await fetch(apiUrl);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.style.display = "none";
+        a.href = url;
+        a.download = `tts_audio.${format}`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+      } catch (e) {
+        alert("Gagal membuat audio: " + e.message);
+      }
+    }
+  </script>
+</body>
+</html>
